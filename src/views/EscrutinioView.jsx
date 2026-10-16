@@ -4,6 +4,7 @@ import { db } from '../db/db';
 import { useAuth } from '../context/AuthContext';
 import {
   BarChart3,
+  PieChart,
   Vote,
   Save,
   CheckCircle,
@@ -11,7 +12,9 @@ import {
   TrendingUp,
   FileText,
   RefreshCw,
-  Award
+  Award,
+  MapPin,
+  Layers
 } from 'lucide-react';
 
 export function EscrutinioView() {
@@ -19,6 +22,11 @@ export function EscrutinioView() {
   const [subTab, setSubTab] = useState('totales'); // 'totales' | 'carga'
   const [resumenGeneral, setResumenGeneral] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Filtros de ámbito y tipo de gráfico
+  const [localidades, setLocalidades] = useState([]);
+  const [localidadSeleccionada, setLocalidadSeleccionada] = useState(null); // null = Todo el departamento
+  const [tipoGrafico, setTipoGrafico] = useState('barras'); // 'barras' | 'torta'
 
   // Estados de carga por mesa
   const [mesas, setMesas] = useState([]);
@@ -34,15 +42,24 @@ export function EscrutinioView() {
   const [mensajeExito, setMensajeExito] = useState('');
   const [errorCarga, setErrorCarga] = useState('');
 
-  const cargarTotales = async () => {
+  const cargarTotales = async (idLoc = localidadSeleccionada) => {
     try {
       setLoading(true);
-      const data = await escrutinioService.getResumenGeneral();
+      const data = await escrutinioService.getResumenGeneral(idLoc);
       setResumenGeneral(data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cargarLocalidades = async () => {
+    try {
+      const locs = await escrutinioService.getLocalidades();
+      setLocalidades(locs);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -71,9 +88,16 @@ export function EscrutinioView() {
   };
 
   useEffect(() => {
-    cargarTotales();
+    cargarLocalidades();
+    cargarTotales(null);
     cargarMesas();
   }, []);
+
+  const handleCambioLocalidad = (idLoc) => {
+    const val = idLoc ? Number(idLoc) : null;
+    setLocalidadSeleccionada(val);
+    cargarTotales(val);
+  };
 
   useEffect(() => {
     if (subTab === 'carga' && mesaSeleccionada) {
@@ -110,7 +134,7 @@ export function EscrutinioView() {
       await escrutinioService.guardarResultadosMesa(mesaSeleccionada, formData, user?.username || 'admin');
       setMensajeExito('Resultados de la mesa guardados con éxito');
       setTimeout(() => setMensajeExito(''), 3000);
-      cargarTotales();
+      cargarTotales(localidadSeleccionada);
       cargarDatosMesa(mesaSeleccionada);
     } catch (err) {
       setErrorCarga(err.message);
@@ -118,6 +142,22 @@ export function EscrutinioView() {
       setGuardando(false);
     }
   };
+
+  // Cálculo para el Gráfico Donut/Torta (SVG)
+  const radioDonut = 64;
+  const circunferencia = 2 * Math.PI * radioDonut; // ~402.12
+  let offsetAcumulado = 0;
+
+  const listasConOffset = (resumenGeneral?.listas || []).map(lista => {
+    const longitud = (lista.porcentaje / 100) * circunferencia;
+    const currentOffset = offsetAcumulado;
+    offsetAcumulado += longitud;
+    return {
+      ...lista,
+      dashArray: `${longitud} ${circunferencia - longitud}`,
+      dashOffset: -currentOffset,
+    };
+  });
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -136,12 +176,12 @@ export function EscrutinioView() {
 
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button
-            onClick={() => { setSubTab('totales'); cargarTotales(); }}
+            onClick={() => { setSubTab('totales'); cargarTotales(localidadSeleccionada); }}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition ${
               subTab === 'totales' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Totales Generales
+            Totales y Gráficos
           </button>
           <button
             onClick={() => setSubTab('carga')}
@@ -154,10 +194,74 @@ export function EscrutinioView() {
         </div>
       </div>
 
-      {/* SUB-TAB 1: TOTALES GENERALES */}
+      {/* SUB-TAB 1: TOTALES Y GRÁFICOS */}
       {subTab === 'totales' && (
         <div className="space-y-6">
-          {/* Métricas Principales */}
+          
+          {/* BARRA DE FILTROS: ÁMBITO GEOGRÁFICO Y TIPO DE GRÁFICO */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            
+            {/* Selector de Ámbito (Departamental / Localidad) */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                Ámbito:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => handleCambioLocalidad(null)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition ${
+                    localidadSeleccionada === null
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  🏛️ Dpto. Garay (General)
+                </button>
+                {localidades.map(loc => (
+                  <button
+                    key={loc.id}
+                    onClick={() => handleCambioLocalidad(loc.id)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition ${
+                      localidadSeleccionada === loc.id
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    📍 {loc.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Selector de Tipo de Gráfico (Barras / Torta) */}
+            <div className="flex items-center gap-2 self-start md:self-auto bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setTipoGrafico('barras')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  tipoGrafico === 'barras'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                Barras
+              </button>
+              <button
+                onClick={() => setTipoGrafico('torta')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  tipoGrafico === 'torta'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <PieChart className="w-3.5 h-3.5" />
+                Tortas
+              </button>
+            </div>
+          </div>
+
+          {/* Métricas Principales del Ámbito Seleccionado */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
@@ -191,7 +295,7 @@ export function EscrutinioView() {
                 {resumenGeneral?.votos_blancos.toLocaleString('es-AR')}
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                Votos válidos sin preferencia
+                Sin preferencia
               </div>
             </div>
 
@@ -203,68 +307,169 @@ export function EscrutinioView() {
                 {(Number(resumenGeneral?.votos_nulos || 0) + Number(resumenGeneral?.votos_recurridos || 0)).toLocaleString('es-AR')}
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                Para control en escrutinio
+                Para control en mesa
               </div>
             </div>
           </div>
 
-          {/* Gráfico y Ranking de Listas */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              Resultados por Lista (Senador Departamental)
-            </h2>
+          {/* SECCIÓN DE GRÁFICO DINÁMICO (BARRAS O TORTA) */}
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-blue-600" />
+                  <span>Distribución de Votos — {resumenGeneral?.nombre_ambito}</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Visualización comparativa provisoria por partido y lista
+                </p>
+              </div>
 
-            {resumenGeneral?.listas.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-sm">
-                No hay listas electorales registradas.
+              <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full self-start">
+                {tipoGrafico === 'barras' ? 'Modo Gráfico de Barras' : 'Modo Gráfico de Tortas'}
+              </span>
+            </div>
+
+            {/* CASO: SIN VOTOS O SIN LISTAS */}
+            {resumenGeneral?.total_votos_validos === 0 ? (
+              <div className="text-center py-12 text-slate-400 text-sm space-y-2">
+                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+                <p className="font-semibold text-slate-600">No hay votos escrutados todavía para este ámbito.</p>
+                <p className="text-xs text-slate-400">Pasa a la pestaña "Carga de Telegrama" para registrar resultados de una mesa.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {resumenGeneral?.listas.map((lista, index) => (
-                  <div key={lista.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white ${
-                          index === 0 ? 'bg-amber-500 shadow-xs' : 'bg-slate-400'
-                        }`}>
-                          {index + 1}
-                        </span>
-                        <div>
-                          <span className="font-extrabold text-slate-800">
-                            Lista {lista.numero} — {lista.nombre}
-                          </span>
-                          <span className="text-xs text-slate-400 ml-2 font-medium">
-                            ({lista.partido_sigla})
-                          </span>
+              <>
+                {/* OPCIÓN 1: GRÁFICO DE BARRAS */}
+                {tipoGrafico === 'barras' && (
+                  <div className="space-y-5">
+                    {resumenGeneral?.listas.map((lista, index) => (
+                      <div key={lista.id} className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white ${
+                              index === 0 ? 'bg-amber-500 shadow-xs' : 'bg-slate-400'
+                            }`}>
+                              {index + 1}
+                            </span>
+                            <div>
+                              <span className="font-extrabold text-slate-800 text-sm">
+                                {lista.nombre}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="font-black text-slate-900 text-base">
+                              {lista.porcentaje}%
+                            </span>
+                            <span className="text-xs text-slate-400 ml-2 font-medium">
+                              ({lista.votos.toLocaleString('es-AR')} votos)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Barra de Porcentaje */}
+                        <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden">
+                          <div
+                            className="h-3.5 rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, Math.max(1, lista.porcentaje))}%`,
+                              backgroundColor: lista.color || '#2563eb',
+                            }}
+                          />
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
 
-                      <div className="text-right">
-                        <span className="font-black text-slate-900 text-base">
-                          {lista.porcentaje}%
+                {/* OPCIÓN 2: GRÁFICO DE TORTAS / DONUT SVG NATIVO */}
+                {tipoGrafico === 'torta' && (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                    
+                    {/* SVG Donut */}
+                    <div className="md:col-span-5 flex justify-center items-center relative">
+                      <svg width="220" height="220" viewBox="0 0 200 200" className="transform -rotate-90">
+                        {/* Círculo base de fondo */}
+                        <circle
+                          cx="100"
+                          cy="100"
+                          r={radioDonut}
+                          fill="transparent"
+                          stroke="#f1f5f9"
+                          strokeWidth="28"
+                        />
+                        {/* Segmentos de listas */}
+                        {listasConOffset.map((lista) => (
+                          lista.porcentaje > 0 && (
+                            <circle
+                              key={lista.id}
+                              cx="100"
+                              cy="100"
+                              r={radioDonut}
+                              fill="transparent"
+                              stroke={lista.color || '#2563eb'}
+                              strokeWidth="28"
+                              strokeDasharray={lista.dashArray}
+                              strokeDashoffset={lista.dashOffset}
+                              className="transition-all duration-700 hover:opacity-90 cursor-pointer"
+                            />
+                          )
+                        ))}
+                      </svg>
+
+                      {/* Texto Central */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                          Votos
                         </span>
-                        <span className="text-xs text-slate-400 ml-2">
-                          ({lista.votos.toLocaleString('es-AR')} votos)
+                        <span className="text-2xl font-black text-slate-800">
+                          {resumenGeneral?.votos_positivos.toLocaleString('es-AR')}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          Válidos Positivos
                         </span>
                       </div>
                     </div>
 
-                    {/* Barra de Porcentaje */}
-                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                      <div
-                        className="h-3 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(100, lista.porcentaje)}%`,
-                          backgroundColor: lista.color || '#2563eb',
-                        }}
-                      />
+                    {/* Leyenda y Detalle por Lista */}
+                    <div className="md:col-span-7 space-y-3">
+                      {resumenGeneral?.listas.map((lista, index) => (
+                        <div
+                          key={lista.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span
+                              className="w-4 h-4 rounded-full flex-shrink-0 shadow-xs"
+                              style={{ backgroundColor: lista.color || '#2563eb' }}
+                            />
+                            <div>
+                              <div className="text-sm font-extrabold text-slate-800">
+                                {lista.nombre}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-base font-black text-slate-900">
+                              {lista.porcentaje}%
+                            </div>
+                            <div className="text-xs text-slate-400 font-medium">
+                              {lista.votos.toLocaleString('es-AR')} votos
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
+
           </div>
+
         </div>
       )}
 
@@ -329,9 +534,6 @@ export function EscrutinioView() {
                     <div>
                       <div className="font-extrabold text-sm text-slate-800">
                         {lista.nombre}
-                      </div>
-                      <div className="text-xs text-slate-400 font-medium">
-                        {lista.sigla}
                       </div>
                     </div>
                   </div>

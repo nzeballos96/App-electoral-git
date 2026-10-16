@@ -8,7 +8,7 @@
 
 1. **Base de Datos Local Persistente (IndexedDB):**
    - No requiere servidor backend ni base de datos externa para funcionar.
-   - Datos iniciales pre-cargados (Departamento Garay: Helvecia, Cayastá, Saladero Cabal).
+   - Datos iniciales pre-cargados (Departamento Garay completo: Helvecia, Cayastá, Santa Rosa de Calchines, Saladero Mariano Cabal y Colonia Mascías).
    - Botón de "Reset Demo" para reiniciar el estado en cualquier momento.
    - Soporte de trabajo 100% offline.
 
@@ -26,7 +26,7 @@
      - 🔴 **Rojo:** Alerta / sin actividad (&gt; 60 min).
 
 4. **Escrutinio y Carga de Telegramas:**
-   - Cómputo provisorio de votos válidos por lista y votos especiales (blanco, nulo, recurrido).
+   - Cómputo provisorio de votos válidos por lista (Lista 1, Lista 2, Lista 3 y Lista 4) y votos especiales (blanco, nulo, recurrido).
    - Validación automática de sumatoria contra el padrón de la mesa.
    - Gráficos de barras con colores oficiales de cada partido.
 
@@ -58,9 +58,11 @@ La aplicación estará disponible en `http://localhost:3000`.
 | Usuario | Contraseña | Rol | Alcance |
 |---|---|---|---|
 | `admin` | `123` | `SuperAdmin` | Control total, padrones y escrutinio |
-| `coord_garay` | `123` | `CoordinadorDepartamental` | Monitoreo del Dpto. Garay |
+| `coord_garay` | `123` | `CoordinadorDepartamental` | Monitoreo general Dpto. Garay |
 | `coord_helvecia` | `123` | `CoordinadorLugar` | Monitoreo Esc. 423 Helvecia |
-| `fiscal_mesa1` | `123` | `Fiscal` | Padrón y registro de votos Mesa 101 |
+| `coord_santarosa` | `123` | `CoordinadorLugar` | Monitoreo Esc. 426 Santa Rosa de Calchines |
+| `fiscal_mesa1` | `123` | `Fiscal` | Padrón y registro de votos Mesa 101 (Helvecia) |
+| `fiscal_mesa5` | `123` | `Fiscal` | Padrón y registro de votos Mesa 301 (Santa Rosa) |
 
 *(También puedes cambiar de rol con un solo clic desde la barra superior).*
 

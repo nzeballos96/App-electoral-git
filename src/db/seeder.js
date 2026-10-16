@@ -2,17 +2,20 @@ import { db } from './db';
 
 export async function seedDatabase(force = false) {
   const countElecciones = await db.elecciones.count();
-  if (countElecciones > 0 && !force) {
-    return; // Ya fue sembrado
+  const countLocalidades = await db.localidades.count();
+
+  // Si ya tiene las 5 localidades completas y no se fuerza, no hace nada
+  if (countElecciones > 0 && countLocalidades >= 5 && !force) {
+    return;
   }
 
-  // Limpiar todas las tablas
+  // Limpiar todas las tablas para sembrado limpio
   await db.transaction('rw', db.tables, async () => {
     for (const table of db.tables) {
       await table.clear();
     }
 
-    // 1. Elección
+    // 1. Elección Departamental
     const eleccionId = await db.elecciones.add({
       id: 1,
       nombre: 'Elecciones Generales - Departamento Garay',
@@ -23,35 +26,47 @@ export async function seedDatabase(force = false) {
     // 2. Departamento
     await db.departamentos.add({ id: 1, nombre: 'Garay' });
 
-    // 3. Localidades
+    // 3. Localidades Reales del Departamento Garay (Santa Fe)
     await db.localidades.bulkAdd([
       { id: 1, id_departamento: 1, nombre: 'Helvecia' },
       { id: 2, id_departamento: 1, nombre: 'Cayastá' },
-      { id: 3, id_departamento: 1, nombre: 'Saladero Cabal' },
+      { id: 3, id_departamento: 1, nombre: 'Santa Rosa de Calchines' },
+      { id: 4, id_departamento: 1, nombre: 'Saladero Mariano Cabal' },
+      { id: 5, id_departamento: 1, nombre: 'Colonia Mascías' },
     ]);
 
-    // 4. Lugares de Votación
+    // 4. Lugares / Establecimientos de Votación Reales
     await db.lugares.bulkAdd([
       { id: 1, id_departamento: 1, id_localidad: 1, nombre: 'Escuela N° 423 República del Perú', direccion: 'San Martín 650' },
       { id: 2, id_departamento: 1, id_localidad: 2, nombre: 'Escuela N° 6102 Gral. San Martín', direccion: 'Hernandarias 320' },
-      { id: 3, id_departamento: 1, id_localidad: 3, nombre: 'Escuela N° 6107 Rosa Turner', direccion: 'Ruta Pcial 1 Km 120' },
+      { id: 3, id_departamento: 1, id_localidad: 3, nombre: 'Escuela N° 426 Mariano Moreno', direccion: 'Fray Antonio Rossi 480' },
+      { id: 4, id_departamento: 1, id_localidad: 4, nombre: 'Escuela N° 6107 Rosa Turner de Estrugamou', direccion: 'Ruta Pcial 1 Km 120' },
+      { id: 5, id_departamento: 1, id_localidad: 5, nombre: 'Escuela N° 6106 Granaderos Argentinos', direccion: 'Zona Urbana S/N' },
     ]);
 
-    // 5. Mesas
+    // 5. Mesas Electorales por Localidad y Escuela
     await db.mesas.bulkAdd([
+      // Helvecia (Escuela 423)
       { id: 1, id_eleccion: eleccionId, id_lugar: 1, numero_mesa: 101 },
       { id: 2, id_eleccion: eleccionId, id_lugar: 1, numero_mesa: 102 },
+      // Cayastá (Escuela 6102)
       { id: 3, id_eleccion: eleccionId, id_lugar: 2, numero_mesa: 201 },
       { id: 4, id_eleccion: eleccionId, id_lugar: 2, numero_mesa: 202 },
+      // Santa Rosa de Calchines (Escuela 426)
       { id: 5, id_eleccion: eleccionId, id_lugar: 3, numero_mesa: 301 },
+      { id: 6, id_eleccion: eleccionId, id_lugar: 3, numero_mesa: 302 },
+      // Saladero Mariano Cabal (Escuela 6107)
+      { id: 7, id_eleccion: eleccionId, id_lugar: 4, numero_mesa: 401 },
+      // Colonia Mascías (Escuela 6106)
+      { id: 8, id_eleccion: eleccionId, id_lugar: 5, numero_mesa: 501 },
     ]);
 
-    // 6. Partidos y Listas
+    // 6. Partidos y Listas (Lista 1, 2, 3 y 4)
     await db.partidos.bulkAdd([
-      { id: 1, nombre: 'Unidos para Cambiar Santa Fe', sigla: 'UCSF', color: '#2563eb' },
-      { id: 2, nombre: 'Juntos Avancemos', sigla: 'JA', color: '#0284c7' },
-      { id: 3, nombre: 'Viva la Libertad', sigla: 'VLL', color: '#7c3aed' },
-      { id: 4, nombre: 'Frente Amplio por la Soberanía', sigla: 'FAS', color: '#e11d48' },
+      { id: 1, nombre: 'Lista 1', sigla: 'Lista 1', color: '#2563eb' },
+      { id: 2, nombre: 'Lista 2', sigla: 'Lista 2', color: '#0284c7' },
+      { id: 3, nombre: 'Lista 3', sigla: 'Lista 3', color: '#7c3aed' },
+      { id: 4, nombre: 'Lista 4', sigla: 'Lista 4', color: '#e11d48' },
     ]);
 
     await db.cargos.bulkAdd([
@@ -60,28 +75,38 @@ export async function seedDatabase(force = false) {
     ]);
 
     await db.listas.bulkAdd([
-      { id: 1, id_partido: 1, numero: 101, nombre: 'Santa Fe Puede' },
-      { id: 2, id_partido: 2, numero: 202, nombre: 'Elijo Hacer' },
-      { id: 3, id_partido: 3, numero: 303, nombre: 'Inquebrantables' },
-      { id: 4, id_partido: 4, numero: 404, nombre: 'Recuperemos Soberanía' },
+      { id: 1, id_partido: 1, numero: 1, nombre: 'Lista 1' },
+      { id: 2, id_partido: 2, numero: 2, nombre: 'Lista 2' },
+      { id: 3, id_partido: 3, numero: 3, nombre: 'Lista 3' },
+      { id: 4, id_partido: 4, numero: 4, nombre: 'Lista 4' },
     ]);
 
     await db.candidatos.bulkAdd([
-      { id: 1, id_lista: 1, id_cargo: 1, nombre: 'Germana Figueroa Casas', orden: 1 },
-      { id: 2, id_lista: 2, id_cargo: 1, nombre: 'Marcelo Lewandowski', orden: 1 },
-      { id: 3, id_lista: 3, id_cargo: 1, nombre: 'Carlos Rovasio', orden: 1 },
-      { id: 4, id_lista: 4, id_cargo: 1, nombre: 'Claudia Balagué', orden: 1 },
+      // Lista 1
+      { id: 1, id_lista: 1, id_cargo: 1, nombre: 'Roberto M. Giménez', orden: 1 },
+      { id: 2, id_lista: 1, id_cargo: 2, nombre: 'Marcelo V. Benítez', orden: 1 },
+      // Lista 2
+      { id: 3, id_lista: 2, id_cargo: 1, nombre: 'Laura G. Tourn', orden: 1 },
+      { id: 4, id_lista: 2, id_cargo: 2, nombre: 'Juan Ignacio Mendoza', orden: 1 },
+      // Lista 3
+      { id: 5, id_lista: 3, id_cargo: 1, nombre: 'Esteban D. Rivero', orden: 1 },
+      { id: 6, id_lista: 3, id_cargo: 2, nombre: 'Sandra P. Quiroz', orden: 1 },
+      // Lista 4
+      { id: 7, id_lista: 4, id_cargo: 1, nombre: 'Carlos A. Leguizamón', orden: 1 },
+      { id: 8, id_lista: 4, id_cargo: 2, nombre: 'Andrea F. Romero', orden: 1 },
     ]);
 
-    // 7. Usuarios Demo
+    // 7. Usuarios Demo de Acceso Rápido
     await db.usuarios.bulkAdd([
       { id: 1, username: 'admin', password: '123', rol: 'SuperAdmin', nombre: 'Administrador General' },
       { id: 2, username: 'coord_garay', password: '123', rol: 'CoordinadorDepartamental', id_departamento: 1, nombre: 'Coordinador Dpto. Garay' },
-      { id: 3, username: 'coord_helvecia', password: '123', rol: 'CoordinadorLugar', id_departamento: 1, id_lugar: 1, nombre: 'Coordinador Esc. 423' },
-      { id: 4, username: 'fiscal_mesa1', password: '123', rol: 'Fiscal', id_mesa: 1, nombre: 'Fiscal Mesa 101' },
+      { id: 3, username: 'coord_helvecia', password: '123', rol: 'CoordinadorLugar', id_departamento: 1, id_lugar: 1, nombre: 'Coordinador Esc. 423 Helvecia' },
+      { id: 4, username: 'coord_santarosa', password: '123', rol: 'CoordinadorLugar', id_departamento: 1, id_lugar: 3, nombre: 'Coordinador Esc. 426 Santa Rosa' },
+      { id: 5, username: 'fiscal_mesa1', password: '123', rol: 'Fiscal', id_mesa: 1, nombre: 'Fiscal Mesa 101 (Helvecia)' },
+      { id: 6, username: 'fiscal_mesa5', password: '123', rol: 'Fiscal', id_mesa: 5, nombre: 'Fiscal Mesa 301 (Santa Rosa)' },
     ]);
 
-    // 8. Padrón Demo de Votantes (~15 por mesa)
+    // 8. Padrón Demo de Votantes (~15 por cada mesa)
     const personas = [
       { dni: '20456123', nombre: 'JUAN MANUEL', apellido: 'GARCIA', genero: 'M', clase: '1975' },
       { dni: '22894561', nombre: 'MARIA ELENA', apellido: 'MARTINEZ', genero: 'F', clase: '1979' },
@@ -102,11 +127,11 @@ export async function seedDatabase(force = false) {
 
     const votantes = [];
     let idVotante = 1;
-    for (let mesaId = 1; mesaId <= 5; mesaId++) {
+    // Sembrar votantes en las 8 mesas
+    for (let mesaId = 1; mesaId <= 8; mesaId++) {
       for (let i = 0; i < personas.length; i++) {
         const p = personas[i];
-        // DNI único por mesa
-        const dniMod = `${p.dni.slice(0, 7)}${mesaId}`;
+        const dniMod = `${p.dni.slice(0, 6)}${mesaId.toString().padStart(2, '0')}`;
         votantes.push({
           id: idVotante++,
           id_eleccion: 1,
@@ -125,23 +150,62 @@ export async function seedDatabase(force = false) {
 
     // 9. Votos Iniciales para Demostración del Semáforo
     const now = new Date();
-    // Mesa 1: 5 votos recientes (Verde < 30 min)
-    const votosMesa1 = votantes.filter(v => v.id_mesa === 1).slice(0, 5);
+    // Mesa 1 (Helvecia - 101): 6 votos recientes (< 30 min) -> 🟢 Verde
+    const votosMesa1 = votantes.filter(v => v.id_mesa === 1).slice(0, 6);
     for (let i = 0; i < votosMesa1.length; i++) {
-      const hora = new Date(now.getTime() - (5 + i * 2) * 60000).toISOString();
+      const hora = new Date(now.getTime() - (3 + i * 3) * 60000).toISOString();
       await db.votos.add({ id_mesa: 1, dni: votosMesa1[i].dni, hora });
     }
 
-    // Mesa 3: 3 votos de hace 40 minutos (Amarillo 30-60 min)
-    const votosMesa3 = votantes.filter(v => v.id_mesa === 3).slice(0, 3);
-    for (let i = 0; i < votosMesa3.length; i++) {
-      const hora = new Date(now.getTime() - (38 + i * 4) * 60000).toISOString();
-      await db.votos.add({ id_mesa: 3, dni: votosMesa3[i].dni, hora });
+    // Mesa 5 (Santa Rosa - 301): 4 votos de hace ~45 min -> 🟡 Amarillo
+    const votosMesa5 = votantes.filter(v => v.id_mesa === 5).slice(0, 4);
+    for (let i = 0; i < votosMesa5.length; i++) {
+      const hora = new Date(now.getTime() - (40 + i * 4) * 60000).toISOString();
+      await db.votos.add({ id_mesa: 5, dni: votosMesa5[i].dni, hora });
     }
 
-    // Mesa 5: Sin votos registrados aún (Rojo > 60 min)
+    // Mesa 8 (Colonia Mascías - 501): Sin votos iniciales -> 🔴 Rojo
 
-    // 10. Auditoría inicial
+    // 10. Resultados / Telegramas Escrutados Demo (para gráficos de Barras y Tortas)
+    await db.resultados.bulkAdd([
+      // Mesa 1 (Helvecia - Mesa 101)
+      { id_mesa: 1, id_lista: 1, tipo: 'positivo', votos: 5 },
+      { id_mesa: 1, id_lista: 2, tipo: 'positivo', votos: 4 },
+      { id_mesa: 1, id_lista: 3, tipo: 'positivo', votos: 3 },
+      { id_mesa: 1, id_lista: 4, tipo: 'positivo', votos: 1 },
+      { id_mesa: 1, id_lista: null, tipo: 'blanco', votos: 1 },
+      { id_mesa: 1, id_lista: null, tipo: 'nulo', votos: 0 },
+      { id_mesa: 1, id_lista: null, tipo: 'recurrido', votos: 0 },
+
+      // Mesa 3 (Cayastá - Mesa 201)
+      { id_mesa: 3, id_lista: 1, tipo: 'positivo', votos: 3 },
+      { id_mesa: 3, id_lista: 2, tipo: 'positivo', votos: 6 },
+      { id_mesa: 3, id_lista: 3, tipo: 'positivo', votos: 2 },
+      { id_mesa: 3, id_lista: 4, tipo: 'positivo', votos: 2 },
+      { id_mesa: 3, id_lista: null, tipo: 'blanco', votos: 1 },
+      { id_mesa: 3, id_lista: null, tipo: 'nulo', votos: 0 },
+      { id_mesa: 3, id_lista: null, tipo: 'recurrido', votos: 0 },
+
+      // Mesa 5 (Santa Rosa de Calchines - Mesa 301)
+      { id_mesa: 5, id_lista: 1, tipo: 'positivo', votos: 4 },
+      { id_mesa: 5, id_lista: 2, tipo: 'positivo', votos: 3 },
+      { id_mesa: 5, id_lista: 3, tipo: 'positivo', votos: 5 },
+      { id_mesa: 5, id_lista: 4, tipo: 'positivo', votos: 2 },
+      { id_mesa: 5, id_lista: null, tipo: 'blanco', votos: 0 },
+      { id_mesa: 5, id_lista: null, tipo: 'nulo', votos: 1 },
+      { id_mesa: 5, id_lista: null, tipo: 'recurrido', votos: 0 },
+
+      // Mesa 7 (Saladero Mariano Cabal - Mesa 401)
+      { id_mesa: 7, id_lista: 1, tipo: 'positivo', votos: 2 },
+      { id_mesa: 7, id_lista: 2, tipo: 'positivo', votos: 2 },
+      { id_mesa: 7, id_lista: 3, tipo: 'positivo', votos: 2 },
+      { id_mesa: 7, id_lista: 4, tipo: 'positivo', votos: 4 },
+      { id_mesa: 7, id_lista: null, tipo: 'blanco', votos: 1 },
+      { id_mesa: 7, id_lista: null, tipo: 'nulo', votos: 0 },
+      { id_mesa: 7, id_lista: null, tipo: 'recurrido', votos: 0 },
+    ]);
+
+    // 11. Auditoría inicial
     await db.auditorias.add({
       usuario: 'sistema',
       accion: 'seeder_ejecutado',
@@ -151,5 +215,5 @@ export async function seedDatabase(force = false) {
     });
   });
 
-  console.log('✅ Base de datos local sembrada con éxito');
+  console.log('✅ Base de datos local sembrada con éxito: 5 Localidades de Garay y Listas 1, 2, 3 y 4');
 }

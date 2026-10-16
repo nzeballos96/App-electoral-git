@@ -2,6 +2,13 @@ import { db } from '../db/db';
 
 export const escrutinioService = {
   /**
+   * Obtiene la lista de localidades del departamento.
+   */
+  async getLocalidades() {
+    return await db.localidades.toArray();
+  },
+
+  /**
    * Obtiene los datos para cargar o ver el resultado de una mesa.
    */
   async getResultadosMesa(idMesa) {
@@ -100,18 +107,37 @@ export const escrutinioService = {
   },
 
   /**
-   * Obtiene el acumulado de escrutinio general y por partido.
+   * Obtiene el acumulado de escrutinio general o por localidad.
+   * @param {number|null} idLocalidad - ID de la localidad o null para ámbito Departamental.
    */
-  async getResumenGeneral() {
-    const [mesas, resultados, listas, partidos] = await Promise.all([
+  async getResumenGeneral(idLocalidad = null) {
+    const [todasMesas, todosLugares, todosResultados, listas, partidos] = await Promise.all([
       db.mesas.toArray(),
+      db.lugares.toArray(),
       db.resultados.toArray(),
       db.listas.toArray(),
       db.partidos.toArray(),
     ]);
 
+    // Filtrar mesas si se seleccionó una localidad específica
+    let mesasFiltradas = todasMesas;
+    let nombreAmbito = 'Departamento Garay (General)';
+
+    if (idLocalidad) {
+      const locId = Number(idLocalidad);
+      const localidadObj = await db.localidades.get(locId);
+      if (localidadObj) {
+        nombreAmbito = `Localidad de ${localidadObj.nombre}`;
+      }
+      const lugaresLocIds = new Set(todosLugares.filter(l => l.id_localidad === locId).map(l => l.id));
+      mesasFiltradas = todasMesas.filter(m => lugaresLocIds.has(m.id_lugar));
+    }
+
+    const mesasValidasIds = new Set(mesasFiltradas.map(m => m.id));
+    const resultados = todosResultados.filter(r => mesasValidasIds.has(r.id_mesa));
+
     const mesasCargadasIds = new Set(resultados.map(r => r.id_mesa));
-    const totalMesas = mesas.length;
+    const totalMesas = mesasFiltradas.length;
     const mesasEscrutadas = mesasCargadasIds.size;
     const porcentajeMesas = totalMesas > 0 ? Number(((mesasEscrutadas / totalMesas) * 100).toFixed(1)) : 0;
 
@@ -156,6 +182,8 @@ export const escrutinioService = {
     }).sort((a, b) => b.votos - a.votos);
 
     return {
+      nombre_ambito: nombreAmbito,
+      id_localidad: idLocalidad,
       total_mesas: totalMesas,
       mesas_escrutadas: mesasEscrutadas,
       porcentaje_mesas: porcentajeMesas,
