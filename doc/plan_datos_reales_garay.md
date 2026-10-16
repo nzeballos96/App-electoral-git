@@ -91,8 +91,16 @@ Actualmente en `src/db/seeder.js`:
 
 ---
 
-## 3. Plan de Pruebas
-1. Verificar que Dexie siembre correctamente las 5 localidades de Garay: Helvecia, Cayastá, Santa Rosa de Calchines, Saladero Cabal y Colonia Mascías.
-2. Comprobar que en la vista de **Escrutinio** aparezcan la **Lista 1, Lista 2, Lista 3 y Lista 4** para la carga de votos.
-3. Comprobar que en el **Dashboard de Monitoreo** se visualicen las mesas de todas las localidades con el semáforo y los filtros operativos.
-4. Validar que la experiencia visual y diseño se preserven intactos al 100%.
+## 4. Resolución de Falla en GitHub Actions: HttpError 404 Not Found en configure-pages
+
+### Diagnóstico del Error:
+```text
+Get Pages site failed. Please verify that the repository has Pages enabled and configured to build using GitHub Actions, or consider exploring the enablement parameter for this action. Error: Not Found
+```
+- **Causa Raíz:** En repositorios nuevos de GitHub, GitHub Pages viene desactivado por defecto o configurado en `Deploy from a branch`. La API de GitHub devuelve `404 Not Found` hasta que el administrador del repositorio habilita Pages con la opción `GitHub Actions`.
+- **Solución Técnica:**
+  1. **Configuración en GitHub:** Ingresar a `https://github.com/nzeballos96/App-electoral-git/settings/pages` y en **Build and deployment -> Source** seleccionar **GitHub Actions**.
+  2. **Ajuste en `.github/workflows/deploy.yml`:**
+     - Actualizar `node-version: 22` para evitar warnings de deprecación de Node 20.
+     - Añadir parámetro `enablement: true` en `actions/configure-pages@v5`.
+
